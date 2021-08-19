@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(extruder_control)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -12,6 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   message_generation
+  rosserial_arduino
+  rosserial_client
 )
 
 ## System dependencies are found with CMake's conventions
@@ -82,7 +84,7 @@ generate_messages(
 ## * In the file package.xml:
 ##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
 ## * In this file (CMakeLists.txt):
-##   * add "dynamic_reconfigure" to
+#   * add "dynamic_reconfigure" to
 ##     find_package(catkin REQUIRED COMPONENTS ...)
 ##   * uncomment the "generate_dynamic_reconfigure_options" section below
 ##     and list every .cfg file to be processed
@@ -206,3 +208,17 @@ include_directories(
 # catkin_add_nosetests(test)
 
 # rosserial
+
+rosserial_generate_ros_lib(
+  PACKAGE rosserial_arduino
+  SCRIPT make_libraries.py
+)
+
+rosserial_configure_client(
+  DIRECTORY firmware
+  TOOLCHAIN_FILE ${ROSSERIAL_ARDUINO_TOOLCHAIN}
+)
+
+rosserial_add_client_target(firmware stepper ALL)
+rosserial_add_client_target(firmware stepper-upload)
+
