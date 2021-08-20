@@ -1,6 +1,6 @@
-// Stepper library created by Mike McCauley, install from Tools > Manage Libraries
 #include <Arduino.h>
 #include <AccelStepper.h>
+
 #include <ros.h>
 #include <std_msgs/UInt16.h>
 #include <extruder_control/Settings.h>

@@ -219,6 +219,7 @@ rosserial_configure_client(
   TOOLCHAIN_FILE ${ROSSERIAL_ARDUINO_TOOLCHAIN}
 )
 
-rosserial_add_client_target(firmware stepper ALL)
-rosserial_add_client_target(firmware stepper-upload)
-
+rosserial_add_client_target(firmware stepper DEPENDS Settings)
+rosserial_add_client_target(firmware stepper-upload DEPENDS Settings)
+rosserial_add_client_target(firmware simple-stepper)
+rosserial_add_client_target(firmware simple-stepper-upload)

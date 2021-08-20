@@ -14,9 +14,10 @@ generate_arduino_firmware(stepper
   PORT /dev/ttyACM0
 )
 
-generate_arduino_firmware(simple_stepper
-  SRCS simple_stepper.cpp ${ROS_LIB_DIR}/time.cpp 
+generate_arduino_firmware(simple-stepper
+  SRCS simple-stepper.cpp ${ROS_LIB_DIR}/time.cpp 
   BOARD uno 
   PORT /dev/ttyACM0
 )
+
 
