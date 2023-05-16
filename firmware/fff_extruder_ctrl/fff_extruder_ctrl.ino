@@ -8,8 +8,10 @@ enum AnalogReferenceType { AREF_DEFAULT,
 
 const long TEMP_CONTROL_INTERAL_MILLIS = 2000;  // interval at which to check temperature in milliseconds
 
-const int HOTEND_TEMP_DEGREES_C = 0;  // in C
-const int EXTRUDER_RPM = 60;          // steps per second
+//const int HOTEND_TEMP_DEGREES_C = 110;  // in C //230516 PLA
+//const int HOTEND_TEMP_DEGREES_C = 130;  // in C //230516 TPU clogged
+
+const int EXTRUDER_RPM = 120;          // steps per second
 const bool INVERT_STEPPER_DIR = true;
 const int extruderMotorForwards = LOW;   // document what is backwards and what is forwards
 const int extruderMotorBackwards = LOW;  // document what is backwards and what is forwards
@@ -20,12 +22,15 @@ const AnalogReferenceType ANALOG_REFERENCE_TYPE = AREF_INTERNAL;
 // PINS
 
 // Comm pins
-const int DI_ROBOT_RUN_PIN = 6;
-const int DI_ROBOT_HEAT_UP_PIN = 7;
+const int DI_ROBOT_RUN_PIN = 7;
+const int DI_ROBOT_HEAT_UP_PIN = 8;
 const int DO_ROBOT_TEMP_REACHED_PIN = A0;
 
+const int DO_24V_TO_5V_BOARD_PWR_PIN = 5;
+const int MOTOR_DRIVER_PWR_PIN = 10;
+
 // Stepper motor pins
-const int DO_NC_ENABLE_PIN = 10;  // ENA - Enable when 0, disable when 1
+const int DO_NC_ENABLE_PIN = 3;  // ENA - Enable when 0, disable when 1
 const int DO_DIR_PIN = 11;        // DIR - Direction
 const int DO_STEP_PIN = 12;       // STP/PUL - Step, Pulse
 
@@ -50,6 +55,7 @@ const float c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
 const float STEP_ANGLE = 1.8;
 const float GEAR_MULTIPLIER = 3.32;
 const int MICROSTEP_MULTIPLIER = 16;
+
 
 // Create a new instance of the AccelStepper class:
 AccelStepper g_stepper = AccelStepper(AccelStepper::DRIVER, DO_STEP_PIN, DO_DIR_PIN);
@@ -107,14 +113,14 @@ float rpm2StepsPerSec(int rpm, float step_angle, int microstep_multiplier, float
 
   return steps_per_min / 60.0;
 }
+const int STEPS_PER_SEC = round(rpm2StepsPerSec(EXTRUDER_RPM, STEP_ANGLE, MICROSTEP_MULTIPLIER, GEAR_MULTIPLIER));
 
 void setup() {
   analogReference(ANALOG_REFERENCE_TYPE);
 
   // Set the maximum speed in steps per second:
   g_stepper.setMaxSpeed(3200);
-  float steps_per_sec = rpm2StepsPerSec(EXTRUDER_RPM, STEP_ANGLE, MICROSTEP_MULTIPLIER, GEAR_MULTIPLIER);
-  g_stepper.setSpeed(round(steps_per_sec));
+  g_stepper.setSpeed(0);
 
   g_stepper.setPinsInverted(INVERT_STEPPER_DIR, false, false);
 
@@ -124,6 +130,14 @@ void setup() {
 
   // Setup Thermistor
   Serial.begin(9600);
+
+  // setup 24V to 5V board pwr
+  pinMode(DO_24V_TO_5V_BOARD_PWR_PIN, OUTPUT);
+  digitalWrite(DO_24V_TO_5V_BOARD_PWR_PIN, HIGH);
+
+  // set up motor driver pwr
+  pinMode(MOTOR_DRIVER_PWR_PIN, OUTPUT);
+  digitalWrite(MOTOR_DRIVER_PWR_PIN, HIGH);
 
   // setup robot input pin
   pinMode(DI_ROBOT_RUN_PIN, INPUT_PULLUP);
@@ -149,10 +163,16 @@ void setup() {
 // ===============================================================================
 
 void loop() {
+  if (digitalRead(DI_ROBOT_RUN_PIN)) {
+    g_stepper.setSpeed(STEPS_PER_SEC);
+  } else {
+    g_stepper.setSpeed(0);
+  }
+
   g_stepper.runSpeed();  // Rotate the g_stepper motor
 
   unsigned long current_millis = millis();
-  if (current_millis - g_previous_millis >= TEMP_CONTROL_INTERAL_MILLIS) {
+  if (digitalRead(DI_ROBOT_HEAT_UP_PIN) && current_millis - g_previous_millis >= TEMP_CONTROL_INTERAL_MILLIS) {
     g_previous_millis = current_millis;
 
     // Read the thermistor temperature
