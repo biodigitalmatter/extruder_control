@@ -1,3 +1,4 @@
+// Install AccelStepper: Tools > Manage libraries > Search for and install "AccelStepper"
 #include <AccelStepper.h>
 
 enum AnalogReferenceType { AREF_DEFAULT,
@@ -5,24 +6,14 @@ enum AnalogReferenceType { AREF_DEFAULT,
                            AREF_EXTERNAL };
 
 // SETTINGS
-
-const long TEMP_CONTROL_INTERAL_MILLIS = 2000;  // interval at which to check temperature in milliseconds
-
-//const int HOTEND_TEMP_DEGREES_C = 110;  // in C //230516 PLA
-//const int HOTEND_TEMP_DEGREES_C = 130;  // in C //230516 TPU clogged
-
-const int EXTRUDER_RPM = 120;          // steps per second
-const bool INVERT_STEPPER_DIR = true;
-const int extruderMotorForwards = LOW;   // document what is backwards and what is forwards
-const int extruderMotorBackwards = LOW;  // document what is backwards and what is forwards
-
-const float THERMISTOR_SETUP_FIXED_R1_OHM = 100000.0;  // 100k Ohm reference resistor
-const AnalogReferenceType ANALOG_REFERENCE_TYPE = AREF_INTERNAL;
+const int HOTEND_TEMP_DEGREES_C = 210;
+const int EXTRUDER_RPM = 120;  // rotations per minute of stepper
 
 // PINS
 
 // Comm pins
-const int DI_ROBOT_RUN_PIN = 7;
+const int DI_ROBOT_STEPPER_BACKWARDS_PIN = 6;
+const int DI_ROBOT_STEPPER_FORWARDS_PIN = 7;
 const int DI_ROBOT_HEAT_UP_PIN = 8;
 const int DO_ROBOT_TEMP_REACHED_PIN = A0;
 
@@ -31,31 +22,36 @@ const int MOTOR_DRIVER_PWR_PIN = 10;
 
 // Stepper motor pins
 const int DO_NC_ENABLE_PIN = 3;  // ENA - Enable when 0, disable when 1
-const int DO_DIR_PIN = 11;        // DIR - Direction
-const int DO_STEP_PIN = 12;       // STP/PUL - Step, Pulse
+const int DO_DIR_PIN = 11;       // DIR - Direction
+const int DO_STEP_PIN = 12;      // STP/PUL - Step, Pulse
 
 // hotend pins
 const int DO_HEATING_PIN = 2;
 const int AI_THERMISTOR_PIN = A5;
 
 // THERMISTOR
+const long TEMP_CONTROL_INTERVAL_MILLIS = 2000;  // interval at which to check temperature
 
-float THERMISTOR_RESISTANCE_OHM = 10000;
+const float THERMISTOR_SETUP_FIXED_R1_OHM = 100000.0;  // 100k Ohm reference resistor
+const AnalogReferenceType ANALOG_REFERENCE_TYPE = AREF_INTERNAL;
 
-// TEMPERATURE CONTROL VARIABLES
-unsigned long g_previous_millis = 0;  // will store last time PRINT was updated
-
-// Obtained c values from:
+// Obtained Steinhart-Hart values from:
 // https://www.thinksrs.com/downloads/programs/Therm%20Calc/NTCCalibrator/NTCcalculator.htm
-const float c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
-//float c1 = 0.8098138332e-3, c2 = 2.115966516e-4, c3 = 0.7086146145e-7;
-//float c1 =0.7203283552e-3, c2 = 2.171656865e-4, c3 = 0.8706070062e-7;
+// https://download.lulzbot.com/retail_parts/Completed_Parts/100k_Semitec_NTC_Thermistor_235mm_KT-CP0110/GT-2-glass-thermistors.pdf
+// beta-value (at 25 degrees): 4267K
+// resistance (Ohm) | degrees (C)
+// 353700           |   0
+//   5556           | 100
+//   439.3          | 200
+const float SH_A = 0.8097317731e-03, SH_B = 2.11635527e-04, SH_C = 0.7066084133e-07;
+
+unsigned long g_previous_millis = 0;  // will store last time PRINT was updated
 
 // Hemera motor
 const float STEP_ANGLE = 1.8;
 const float GEAR_MULTIPLIER = 3.32;
 const int MICROSTEP_MULTIPLIER = 16;
-
+const bool INVERT_STEPPER_DIR = true;
 
 // Create a new instance of the AccelStepper class:
 AccelStepper g_stepper = AccelStepper(AccelStepper::DRIVER, DO_STEP_PIN, DO_DIR_PIN);
@@ -85,6 +81,7 @@ float getReferenceVoltage() {
 }
 
 float readThermistorTemperature() {
+  // TODO: Replace with <Thermistor.h>?
   // Read the analog value (0-1023) from the thermistor pin
   int analogValue = analogRead(AI_THERMISTOR_PIN);
 
@@ -97,7 +94,7 @@ float readThermistorTemperature() {
   float thermistor_ohm = THERMISTOR_SETUP_FIXED_R1_OHM * (referenceVoltage / Vout - 1.0);
 
   // Convert resistance to temperature using the Steinhart-Hart equation coefficients (c1, c2, c3)
-  float T = 1.0 / (c1 + c2 * log(thermistor_ohm) + c3 * pow(log(thermistor_ohm), 3));
+  float T = 1.0 / (SH_A + SH_B * log(thermistor_ohm) + SH_C * pow(log(thermistor_ohm), 3));
 
   // Convert temperature from Kelvin to Celsius
   float Tc = T - 273.15;
@@ -113,6 +110,7 @@ float rpm2StepsPerSec(int rpm, float step_angle, int microstep_multiplier, float
 
   return steps_per_min / 60.0;
 }
+
 const int STEPS_PER_SEC = round(rpm2StepsPerSec(EXTRUDER_RPM, STEP_ANGLE, MICROSTEP_MULTIPLIER, GEAR_MULTIPLIER));
 
 void setup() {
@@ -140,7 +138,8 @@ void setup() {
   digitalWrite(MOTOR_DRIVER_PWR_PIN, HIGH);
 
   // setup robot input pin
-  pinMode(DI_ROBOT_RUN_PIN, INPUT_PULLUP);
+  pinMode(DI_ROBOT_STEPPER_BACKWARDS_PIN, INPUT_PULLUP);
+  pinMode(DI_ROBOT_STEPPER_FORWARDS_PIN, INPUT_PULLUP);
   pinMode(DI_ROBOT_HEAT_UP_PIN, INPUT_PULLUP);
   // setup robot output pin
   pinMode(DO_ROBOT_TEMP_REACHED_PIN, OUTPUT);
@@ -157,33 +156,37 @@ void setup() {
   digitalWrite(LED_BUILTIN, LOW);
 }
 
-
-// ===============================================================================
-// LOOP
-// ===============================================================================
-
 void loop() {
-  if (digitalRead(DI_ROBOT_RUN_PIN)) {
-    g_stepper.setSpeed(STEPS_PER_SEC);
-  } else {
-    g_stepper.setSpeed(0);
+  bool forwards = digitalRead(DI_ROBOT_STEPPER_FORWARDS_PIN) == HIGH;
+  //bool backwards_signal = digitalRead(DI_ROBOT_STEPPER_BACKWARDS_PIN) == HIGH;
+  bool backwards = false;
+
+  int direction = 0;
+
+  if (forwards && !backwards) {
+    direction = 1;
+  } else if (!forwards && backwards) {
+    direction = -1;
   }
+
+  g_stepper.setSpeed(STEPS_PER_SEC * direction);
 
   g_stepper.runSpeed();  // Rotate the g_stepper motor
 
   unsigned long current_millis = millis();
-  if (digitalRead(DI_ROBOT_HEAT_UP_PIN) && current_millis - g_previous_millis >= TEMP_CONTROL_INTERAL_MILLIS) {
+  if (digitalRead(DI_ROBOT_HEAT_UP_PIN) == HIGH && current_millis - g_previous_millis > TEMP_CONTROL_INTERVAL_MILLIS) {
     g_previous_millis = current_millis;
 
     // Read the thermistor temperature
     float temperature = readThermistorTemperature();
 
+    // TODO: Add PID controller and send PWM to MOSFET
     if (temperature < HOTEND_TEMP_DEGREES_C) {
       digitalWrite(DO_HEATING_PIN, HIGH);
-      digitalWrite(LED_BUILTIN, HIGH);
+      //digitalWrite(LED_BUILTIN, HIGH);
     } else {
       digitalWrite(DO_HEATING_PIN, LOW);
-      digitalWrite(LED_BUILTIN, LOW);
+      //digitalWrite(LED_BUILTIN, LOW);
     }
   }
 }
