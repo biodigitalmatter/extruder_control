@@ -173,20 +173,21 @@ void loop() {
 
   g_stepper.runSpeed();  // Rotate the g_stepper motor
 
-  unsigned long current_millis = millis();
-  if (digitalRead(DI_ROBOT_HEAT_UP_PIN) == HIGH && current_millis - g_previous_millis > TEMP_CONTROL_INTERVAL_MILLIS) {
-    g_previous_millis = current_millis;
+  // make sure that heater is off when signal is low
+  if (digitalRead(DI_ROBOT_HEAT_UP_PIN == LOW)) {
+    digitalWrite(DO_HEATING_PIN, LOW);
+  } else { // if signal is high
+    unsigned long current_millis = millis();
+    // and enough time has passed since last check
+    if (current_millis - g_previous_millis > TEMP_CONTROL_INTERVAL_MILLIS) { 
+      g_previous_millis = current_millis;
 
-    // Read the thermistor temperature
-    float temperature = readThermistorTemperature();
+      // Read the thermistor temperature
+      float temperature = readThermistorTemperature();
 
-    // TODO: Add PID controller and send PWM to MOSFET
-    if (temperature < HOTEND_TEMP_DEGREES_C) {
-      digitalWrite(DO_HEATING_PIN, HIGH);
-      //digitalWrite(LED_BUILTIN, HIGH);
-    } else {
-      digitalWrite(DO_HEATING_PIN, LOW);
-      //digitalWrite(LED_BUILTIN, LOW);
+      // TODO: Add PID controller and send PWM to MOSFET
+      int pinstate = temperature < HOTEND_TEMP_DEGREES_C ? HIGH : LOW;
+      digitalWrite(DO_HEATING_PIN, pinstate);
     }
   }
 }
